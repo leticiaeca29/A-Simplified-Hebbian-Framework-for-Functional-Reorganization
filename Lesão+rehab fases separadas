@@ -1,0 +1,69 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# -----------------------------
+# PARÂMETROS DO MODELO
+# -----------------------------
+eta = 0.05    # taxa de aprendizado
+w = 0.4       # peso inicial
+w_history = []  # armazena o peso ao longo do tempo
+
+# funções de ativação dos dois neurônios
+def ativ_pre(t):
+    return 1 if t % 3 == 0 else 0   # padrões moderadamente co-ativados
+def ativ_pre_B(t):
+    return 1 if t % 3 == 0 else 0
+
+def ativ_rehab(t):
+    return 1 if t % 2 == 0 else 0   # treino com co-ativação mais frequente
+def ativ_rehab_B(t):
+    return 1 if t % 2 == 0 else 0
+
+# -----------------------------
+# 1) PRÉ-LESÃO: treino inicial
+# -----------------------------
+for t in range(40):
+    preA = ativ_pre(t)
+    preB = ativ_pre_B(t)
+    dw = eta * preA * preB
+    w += dw
+    w_history.append(w)
+
+# -----------------------------
+# 2) LESÃO: queda abrupta
+# -----------------------------
+w *= 0.1  # reduz 90% da força da conexão
+for t in range(10):
+    w_history.append(w)
+
+# -----------------------------
+# 3) REABILITAÇÃO: treino novo
+# -----------------------------
+for t in range(30):
+    A = ativ_rehab(t)
+    B = ativ_rehab_B(t)
+    dw = eta * A * B
+    w += dw
+    w_history.append(w)
+
+# -----------------------------
+# PLOTAR COM FASES SEPARADAS
+# -----------------------------
+pesos = np.array(w_history)
+
+i_pre = range(0, 40)
+i_post = range(40, 50)
+i_rehab = range(50, 80)
+
+plt.figure(figsize=(12,6))
+
+plt.plot(i_pre, pesos[i_pre], label="Pré-lesão", linewidth=3)
+plt.plot(i_post, pesos[i_post], label="Pós-lesão (danificado)", linewidth=3)
+plt.plot(i_rehab, pesos[i_rehab], label="Reabilitação (treino)", linewidth=3)
+
+plt.title("Recuperação de conectividade: dano seguido de reabilitação (modelo Hebbiano mínimo)")
+plt.xlabel("Passos de tempo")
+plt.ylabel("Peso sináptico (w)")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
