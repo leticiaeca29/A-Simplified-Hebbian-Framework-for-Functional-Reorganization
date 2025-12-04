@@ -1,0 +1,100 @@
+# Simulação: dano + reabilitação 
+import numpy as np
+import matplotlib.pyplot as plt
+
+def hebbian_simulation(A, B, w0=0.05, lr=0.05):
+    """Regra Hebbiana mínima: w <- w + a*b*lr"""
+    w = w0
+    ws = [w]
+    for a, b in zip(A, B):
+        w = w + (a * b * lr)
+        ws.append(w)
+    return np.array(ws)
+
+# Parâmetros (alteráveis)
+timesteps_pre = 20       # antes da lesão
+timesteps_lesion = 20    # período logo após a lesão (circuito danificado)
+timesteps_rehab = 40     # período de reabilitação (treino repetitivo)
+w0 = 0.4                 # peso inicial antes da lesão
+w_after_lesion = 0.05    # peso logo após a lesão (simula perda de conectividade)
+lr_pre = 0.02            # taxa de aprendizagem antes da lesão (baixo)
+lr_rehab = 0.06          # taxa de aprendizagem durante reabilitação (mais intensa)
+rng = np.random.RandomState(123)
+
+# Gera padrões de ativação:
+# - pré: co-ativação moderada
+# - lesão: co-ativação muito baixa (ou ausência)
+# - rehab: co-ativação aumentada (simulando treino repetitivo e feedback)
+
+# pré-lesão: A e B co-ativam relativamente frequentemente
+A_pre = (rng.rand(timesteps_pre) < 0.6).astype(int)
+B_pre = A_pre.copy()  # forte co-ativação antes da lesão
+
+# pós-lesão: circuito danificado -> B raramente acompanha A
+A_les = (rng.rand(timesteps_lesion) < 0.6).astype(int)
+# B quase nunca ativa junto com A (ou fica ruidoso)
+B_les = (rng.rand(timesteps_lesion) < 0.15).astype(int)
+
+# reabilitação: tentamos restabelecer co-ativação (mais treino)
+A_reh = (rng.rand(timesteps_rehab) < 0.65).astype(int)
+# aqui B tem maior chance de ativar junto (treino + feedback)
+B_reh = (rng.rand(timesteps_rehab) < 0.55).astype(int)
+
+# Concatenar tudo
+A_all = np.concatenate([A_pre, A_les, A_reh])
+B_all = np.concatenate([B_pre, B_les, B_reh])
+
+# Simulação em duas fases de lr / reinicialização do peso:
+# 1) rodar pré e lesão com lr_pre, começando em w0, mas forçar "queda" após lesão
+ws_phase1 = hebbian_simulation(np.concatenate([A_pre, A_les]),
+                               np.concatenate([B_pre, B_les]),
+                               w0=w0, lr=lr_pre)
+
+# Forçar peso imediatamente após lesão para simular dano (alternativa biologicamente plausível)
+# pegamos o último peso de pré-lesão e substituímos por w_after_lesion para começar rehab
+w_at_rehab_start = w_after_lesion
+
+# 2) rodar reabilitação com lr_rehab a partir do peso reduzido
+ws_rehab = hebbian_simulation(A_reh, B_reh, w0=w_at_rehab_start, lr=lr_rehab)
+
+# montar vetor total de pesos (ajustando índices)
+# ws_phase1 inclui o estado inicial e cada passo; ws_rehab também.
+# vamos compor um vetor contínuo para plotar:
+ws_total = np.concatenate([ws_phase1, ws_rehab[1:]])  # evita duplicar o ponto inicial de rehab
+
+# índices de fases
+t_pre_end = timesteps_pre
+t_les_end = timesteps_pre + timesteps_lesion
+t_rehab_end = t_les_end + timesteps_rehab
+
+# Plot principal
+plt.figure(figsize=(10,5))
+plt.plot(ws_total, marker='o')
+plt.axvspan(0, t_pre_end, alpha=0.08, label='Pré-lesão')
+plt.axvspan(t_pre_end, t_les_end, alpha=0.12, label='Pós-lesão (danificado)')
+plt.axvspan(t_les_end, t_rehab_end, alpha=0.08, label='Reabilitação (treino)')
+plt.xlabel('Passos de tempo')
+plt.ylabel('Peso sináptico (w)')
+plt.title('Recuperação de conectividade: dano seguido de reabilitação (modelo Hebbiano mínimo)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+# Mostrar janelas de ativação para interpretar
+window = 40  # quantos primeiros passos mostrar das sequências A/B (ajuste se quiser)
+print("Sequência A (primeiros {} passos):".format(window), A_all[:window].tolist())
+print("Sequência B (primeiros {} passos):".format(window), B_all[:window].tolist())
+
+# Gráfico adicional: taxa de coincidência (A e B = 1) ao longo do tempo (janela móvel)
+coinc = (A_all * B_all)
+# soma por bloco para visualizar frequência de co-ativação em cada fase
+def block_rate(arr, sizes):
+    rates = []
+    idx = 0
+    for s in sizes:
+        rates.append(arr[idx:idx+s].sum() / float(s))
+        idx += s
+    return rates
+
+rates = block_rate(coinc, [timesteps_pre, timesteps_lesion, timesteps_rehab])
+print("\nFrequência média de co-ativação por fase (pré, pós-lesão, rehab):", rates)
