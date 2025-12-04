@@ -1,0 +1,38 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+def hebbian_simulation(A, B, w0=0.1, lr=0.05):
+    w = w0
+    ws = [w]
+    for a, b in zip(A, B):
+        w = w + (a * b * lr)
+        ws.append(w)
+    return np.array(ws)
+
+timesteps = 40
+w0 = 0.1
+lr = 0.05
+rng = np.random.RandomState(42)
+
+# 1) Co-ativação: B acompanha A (espera-se aumento forte do peso)
+A1 = (rng.rand(timesteps) < 0.6).astype(int)
+B1 = A1.copy()
+
+# 2) Independente: A e B não necessariamente juntos (aumento lento)
+A2 = (rng.rand(timesteps) < 0.5).astype(int)
+B2 = (rng.rand(timesteps) < 0.5).astype(int)
+
+# 3) Anti: quando A=1, B=0 (peso não muda)
+A3 = (rng.rand(timesteps) < 0.5).astype(int)
+B3 = 1 - A3
+
+ws1 = hebbian_simulation(A1, B1, w0=w0, lr=lr)
+ws2 = hebbian_simulation(A2, B2, w0=w0, lr=lr)
+ws3 = hebbian_simulation(A3, B3, w0=w0, lr=lr)
+
+plt.figure(figsize=(8,4))
+plt.plot(ws1, marker='o'); plt.title('Co-ativação'); plt.xlabel('tempo'); plt.ylabel('peso'); plt.grid(True); plt.show()
+plt.figure(figsize=(8,4))
+plt.plot(ws2, marker='o'); plt.title('Independente'); plt.xlabel('tempo'); plt.ylabel('peso'); plt.grid(True); plt.show()
+plt.figure(figsize=(8,4))
+plt.plot(ws3, marker='o'); plt.title('Anti-correlacionado'); plt.xlabel('tempo'); plt.ylabel('peso'); plt.grid(True); plt.show()
